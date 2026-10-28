@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Tab Remote</string>
+    <string name="service_desc">Doosray device (tablet) se touchpad aur keyboard commands receive karke is phone par tap, swipe aur typing karta hai.</string>
+</resources>

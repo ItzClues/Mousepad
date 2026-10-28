@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Tab Remote</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#111;color:#eee;font-family:sans-serif;overscroll-behavior:none}
+body{display:flex;flex-direction:column;padding:8px;gap:8px;user-select:none;-webkit-user-select:none}
+#bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{flex:1;min-width:70px;padding:14px 6px;font-size:16px;border:0;border-radius:10px;background:#2d3748;color:#fff}
+button:active{background:#4a5568}
+#pad{flex:1;background:#1c2330;border:2px solid #334;border-radius:14px;touch-action:none;display:flex;align-items:center;justify-content:center;color:#678;text-align:center}
+#st{font-size:13px;padding:0 6px}.on{color:#4ade80}.off{color:#f87171}
+#kb{width:100%;font-size:18px;padding:10px;border-radius:10px;border:1px solid #445;background:#fff;color:#000;display:none}
+label{font-size:13px;display:flex;gap:6px;align-items:center}
+</style></head><body>
+<div id="bar">
+<span id="st" class="off">offline</span>
+<label>Speed <input id="sp" type="range" min="1" max="6" step="0.5" value="2.5"></label>
+</div>
+<div id="bar2" class="bar" style="display:flex;gap:8px;flex-wrap:wrap">
+<button id="bk">&#9664; Back</button><button id="hm">&#9679; Home</button><button id="rc">&#9635; Recents</button><button id="nt">Notif</button>
+</div>
+<div id="bar3" style="display:flex;gap:8px;flex-wrap:wrap">
+<button id="lc">Click</button><button id="lp">Long press</button><button id="kbb">Keyboard</button>
+</div>
+<textarea id="kb" rows="2" placeholder="Yahan type karen..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+<div id="pad">Touchpad<br>1 ungli: cursor &nbsp;|&nbsp; tap: click<br>2 ungliyan: scroll</div>
+<script>
+var ws,st=document.getElementById('st');
+function conn(){
+ ws=new WebSocket('ws://'+location.host);
+ ws.onopen=function(){st.textContent='connected';st.className='on'};
+ ws.onclose=function(){st.textContent='offline';st.className='off';setTimeout(conn,1000)};
+ ws.onerror=function(){ws.close()};
+}
+function send(s){if(ws&&ws.readyState==1)ws.send(s)}
+conn();
+function bind(id,msg){document.getElementById(id).addEventListener('click',function(){send(msg)})}
+bind('bk','b');bind('hm','h');bind('rc','r');bind('nt','n');bind('lc','c');bind('lp','l');
+var pad=document.getElementById('pad'),sp=document.getElementById('sp');
+var last=null,t0=0,moved=0,maxT=0,sy=0,acc=0,lastS=0;
+function pt(e){var t=e.touches;if(t.length==1)return{x:t[0].clientX,y:t[0].clientY};
+ return{x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2}}
+pad.addEventListener('touchstart',function(e){e.preventDefault();
+ if(e.touches.length==1){t0=Date.now();moved=0;maxT=1}
+ maxT=Math.max(maxT,e.touches.length);last=pt(e)},{passive:false});
+pad.addEventListener('touchmove',function(e){e.preventDefault();if(!last)return;
+ var p=pt(e),dx=p.x-last.x,dy=p.y-last.y;last=p;moved+=Math.abs(dx)+Math.abs(dy);
+ if(e.touches.length==1){var k=parseFloat(sp.value);
+  var a=Math.hypot(dx,dy),acc2=1+Math.min(a/12,1.5);send('m '+(dx*k*acc2).toFixed(1)+' '+(dy*k*acc2).toFixed(1))}
+ else if(e.touches.length==2){acc+=dy*3;var n=Date.now();if(n-lastS>120&&Math.abs(acc)>8){send('s '+acc.toFixed(0));acc=0;lastS=n}}
+},{passive:false});
+pad.addEventListener('touchend',function(e){e.preventDefault();
+ if(e.touches.length==0){if(maxT==1&&moved<12&&Date.now()-t0<250)send('c');
+  if(maxT==2&&moved<12&&Date.now()-t0<250)send('b');last=null;acc=0}
+ else last=pt(e)},{passive:false});
+var kb=document.getElementById('kb');
+document.getElementById('kbb').addEventListener('click',function(){
+ kb.style.display=kb.style.display=='block'?'none':'block';if(kb.style.display=='block')kb.focus()});
+var prev='';
+kb.addEventListener('input',function(){
+ var v=kb.value,i=0;
+ while(i<prev.length&&i<v.length&&prev[i]==v[i])i++;
+ for(var d=prev.length-i;d>0;d--)send('k bs');
+ var parts=v.slice(i).split('\n');
+ for(var j=0;j<parts.length;j++){if(j>0)send('k enter');if(parts[j])send('t '+parts[j])}
+ prev=v;if(v.length>200){kb.value='';prev=''}
+});
+kb.addEventListener('keydown',function(e){if(e.key=='Backspace'&&kb.value==='')send('k bs')});
+</script></body></html>
